@@ -10,6 +10,9 @@ from schemas import PropertyRecord
 
 SERVICE_ACCOUNT_FILE = "service_account.json"
 
+# Target Google Drive Folder ID
+TARGET_DRIVE_FOLDER_ID = "17h-HBVutvBNwZi9Ui__hYmCtgns-my6V"
+
 # Headers for Property Lead Sheets
 PROPERTY_HEADERS = [
     "Target Property URL", "APN / Parcel ID", "Property Address",
@@ -25,12 +28,17 @@ DOC_HEADERS = [
 
 
 class SheetManager:
-    def __init__(self, service_account_file: str):
+    def __init__(self, service_account_file: str, folder_id: str = None):
         self.gc = gspread.service_account(filename=service_account_file)
+        self.folder_id = folder_id
 
     def create_spreadsheet(self, title: str, headers: list):
-        """Creates 1 dedicated spreadsheet per target URL with headers on Row 1."""
-        spreadsheet = self.gc.create(title)
+        """Creates 1 dedicated spreadsheet per target URL inside your Google Drive folder."""
+        if self.folder_id:
+            spreadsheet = self.gc.create(title, folder_id=self.folder_id)
+        else:
+            spreadsheet = self.gc.create(title)
+
         sheet = spreadsheet.sheet1
         sheet.append_row(headers)
         return spreadsheet, sheet
@@ -136,7 +144,7 @@ def run_property_scraper_loop(manager: SheetManager):
             ]
             sheet.append_row(row_data)
 
-            print(f"[SUCCESS] Created Dedicated Property Sheet: '{sheet_title}'")
+            print(f"[SUCCESS] Created Dedicated Property Sheet in Target Folder: '{sheet_title}'")
             print(f" - Sheet URL: {spreadsheet.url}")
             print(f" - Address/Title: {record.full_address}")
         except Exception as e:
@@ -250,7 +258,7 @@ def run_doc_crawler_loop(manager: SheetManager):
 
                 sheet.append_rows(rows_to_insert)
 
-                print(f"[SUCCESS] Created Dedicated Doc Suite Sheet: '{sheet_title}'")
+                print(f"[SUCCESS] Created Dedicated Doc Suite Sheet in Target Folder: '{sheet_title}'")
                 print(f" - Sheet URL: {spreadsheet.url}")
                 print(f" - Total Pages Extracted: {len(records)}")
         except Exception as e:
@@ -261,12 +269,14 @@ def run_doc_crawler_loop(manager: SheetManager):
 # CLI MENU ROUTER
 # =====================================================================
 def main():
-    manager = SheetManager(SERVICE_ACCOUNT_FILE)
+    manager = SheetManager(SERVICE_ACCOUNT_FILE, folder_id=TARGET_DRIVE_FOLDER_ID)
 
     while True:
         print("\n=======================================================")
         print("          UNIFIED LEAD GENERATION CLI ENGINE          ")
         print("=======================================================")
+        print(f" Target Folder ID: {manager.folder_id}")
+        print("-------------------------------------------------------")
         print(" [1] Property Lead Scraper (1 URL -> 1 Dedicated Sheet)")
         print(" [2] Documentation Tree Crawler (Full Tree -> 1 Dedicated Sheet)")
         print(" [q] Quit CLI Engine")
